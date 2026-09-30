@@ -27,6 +27,7 @@ jobs:
         with:
           ruby-version: '2.7'
           bundler: '2.4.22'
+          bundler-cache: true
       - name: Install dependencies
         run: |
           bundle install
