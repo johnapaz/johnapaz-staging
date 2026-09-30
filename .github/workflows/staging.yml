@@ -1,0 +1,63 @@
+name: Publish v2 staging
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '*/30 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: staging-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    env:
+      JEKYLL_ENV: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: johnapaz/johnapaz.github.io
+          ref: v2
+          persist-credentials: false
+      - name: Record source revision
+        run: echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '2.7'
+          bundler: '2.4.22'
+      - name: Install dependencies
+        run: |
+          # The inherited lockfile does not match Gemfile; resolve in CI only.
+          rm Gemfile.lock
+          bundle install
+      - name: Build staging
+        run: |
+          bundle exec jekyll build --safe --config _config.yml,_config.staging.yml
+          printf 'staging.johnapaz.com\n' > _site/CNAME
+          printf 'User-agent: *\nDisallow: /\n' > _site/robots.txt
+          printf '{"branch":"v2","commit":"%s","run":"%s"}\n' "$SOURCE_SHA" "$GITHUB_RUN_ID" > _site/build-info.json
+          python3 scripts/check-staging.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: staging-site
+          path: _site
+          include-hidden-files: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish staging Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
