@@ -37,7 +37,7 @@ jobs:
           bundle exec jekyll build --safe --config _config.yml,_config.staging.yml
           printf 'staging.johnapaz.com\n' > _site/CNAME
           printf 'User-agent: *\nDisallow: /\n' > _site/robots.txt
-          printf '{"branch":"v2","commit":"%s","run":"%s"}\n' "$SOURCE_SHA" "$GITHUB_RUN_ID" > _site/build-info.json
+          printf '{"branch":"landing-screen-tiles","commit":"%s","run":"%s"}\n' "$SOURCE_SHA" "$GITHUB_RUN_ID" > _site/build-info.json
           python3 scripts/check-staging.py
       - uses: actions/upload-artifact@v4
         with:
