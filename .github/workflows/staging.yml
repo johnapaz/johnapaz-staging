@@ -20,7 +20,7 @@ jobs:
         with:
           repository: johnapaz/johnapaz.github.io
           # Temporary review of PR #33; restore ref: v2 after landing-screen review.
-          ref: 74e4a391397914f9d3f8dcd09aff26296e17eeb1
+          ref: fd2d65d5b8ef278133e65e0fde10c11ac28af73d
           persist-credentials: false
       - name: Record source revision
         run: echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
