@@ -66,6 +66,7 @@ jobs:
           Path("_site/build-info.json").write_text(json.dumps({"branch": os.environ["SOURCE_REF"], "commit": os.environ["SOURCE_SHA"], "run": os.environ["GITHUB_RUN_ID"]}) + "\n")
           PYTHON
           python3 scripts/check-staging.py
+          if [ -f scripts/check-site.py ]; then python3 scripts/check-site.py; fi
       - uses: actions/upload-artifact@v4
         with:
           name: staging-site
