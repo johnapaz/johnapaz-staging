@@ -1,8 +1,13 @@
-name: Publish v2 staging
+name: Publish branch preview to staging
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      source_ref:
+        description: 'Optional source branch or commit; blank uses staging-source.txt'
+        required: false
+        type: string
   schedule:
     - cron: '*/30 * * * *'
 permissions:
@@ -16,10 +21,29 @@ jobs:
     env:
       JEKYLL_ENV: staging
     steps:
-      - uses: actions/checkout@v4
+      - name: Read preview selection
+        uses: actions/checkout@v4
+        with:
+          path: staging-control
+          persist-credentials: false
+      - name: Select source branch or commit
+        env:
+          REQUESTED_REF: ${{ inputs.source_ref }}
+        run: |
+          python3 - <<'PYTHON'
+          import os, re
+          from pathlib import Path
+          selected = os.environ.get("REQUESTED_REF", "").strip() or Path("staging-control/staging-source.txt").read_text().strip()
+          if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,199}", selected):
+              raise SystemExit("Invalid source ref")
+          with open(os.environ["GITHUB_ENV"], "a") as output:
+              output.write(f"SOURCE_REF={selected}\n")
+          PYTHON
+      - name: Check out selected source
+        uses: actions/checkout@v4
         with:
           repository: johnapaz/johnapaz.github.io
-          ref: v2
+          ref: ${{ env.SOURCE_REF }}
           persist-credentials: false
       - name: Record source revision
         run: echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
@@ -36,7 +60,11 @@ jobs:
           bundle exec jekyll build --safe --config _config.yml,_config.staging.yml
           printf 'staging.johnapaz.com\n' > _site/CNAME
           printf 'User-agent: *\nDisallow: /\n' > _site/robots.txt
-          printf '{"branch":"v2","commit":"%s","run":"%s"}\n' "$SOURCE_SHA" "$GITHUB_RUN_ID" > _site/build-info.json
+          python3 - <<'PYTHON'
+          import json, os
+          from pathlib import Path
+          Path("_site/build-info.json").write_text(json.dumps({"branch": os.environ["SOURCE_REF"], "commit": os.environ["SOURCE_SHA"], "run": os.environ["GITHUB_RUN_ID"]}) + "\n")
+          PYTHON
           python3 scripts/check-staging.py
       - uses: actions/upload-artifact@v4
         with:
