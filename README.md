@@ -22,7 +22,7 @@ The executable configuration is [`.github/workflows/staging.yml`](.github/workfl
 | --- | --- |
 | **GitHub Actions** | Check out the website source, build it, validate the output, and deploy |
 | **Jekyll, Liquid, Markdown, YAML, and Sass/CSS** | Generate the website using the main repository's content, templates, configuration, and styles |
-| **Ruby 2.7 and Bundler 2.4.22** | Match the current legacy build dependencies; modernization is future work |
+| **Declared Ruby and Bundler 2.4.22** | Read the selected source’s `.ruby-version`; freeze installation and reject lockfile changes (historical sources without the file retain Ruby 2.7) |
 | **Python staging checker** | Validate the generated output using `scripts/check-staging.py` from the source repository |
 | **GitHub Pages** | Serve the generated artifact at the staging domain |
 
@@ -50,11 +50,11 @@ Check the latest workflow run, then compare [`build-info.json`](https://staging.
 
 Review navigation, downloads, links, images, desktop scrolling, mobile and foldable layouts, keyboard operation, and hover/focus behavior. A successful automated build is one check; it does not establish browser or physical-device review.
 
-Staging configuration disables analytics and includes indexing discouragement. **The preview is public:** `noindex` and `robots.txt` are not access controls. The preview link identifies the configured destination, rather than certifying current availability, DNS, or HTTPS status. Follow [deployment runs](https://github.com/johnapaz/johnapaz-staging/actions/workflows/staging.yml) and the [project backlog](https://github.com/johnapaz/johnapaz.github.io/issues?q=is%3Aissue%20state%3Aopen%20sort%3Aupdated-desc) for current evidence.
+Staging uses its separate consent-gated analytics property and discourages indexing. **The preview is public:** `noindex` and `robots.txt` are not access controls. The preview link identifies the configured destination, rather than certifying current availability, DNS, or HTTPS status. Follow [deployment runs](https://github.com/johnapaz/johnapaz-staging/actions/workflows/staging.yml) and the [project backlog](https://github.com/johnapaz/johnapaz.github.io/issues?q=is%3Aissue%20state%3Aopen%20sort%3Aupdated-desc) for current evidence.
 
 ## Promotion and recovery
 
-Production promotion happens in the source repository: record the reviewed commit, open a pull request from `v2` into `main`, the production/default branch, and merge after my approval. Production uses its own build configuration.
+Production promotion happens in the source repository: record the reviewed commit, open a pull request from `v2` into `main`, the production/default branch, and merge after the appropriate review. John authorized Codex review/merge for #69 technical maintenance; user-facing changes return to his review when reasonably scoped. Production uses its own build configuration.
 
 To recover staging, revert the problematic source change on `v2` and run this workflow again. Verify the resulting commit and deployment. The [staging guide](https://github.com/johnapaz/johnapaz.github.io/blob/v2/docs/staging.md) documents the full review and recovery procedure.
 
@@ -70,3 +70,11 @@ To recover staging, revert the problematic source change on `v2` and run this wo
 V2 launch includes site-wide search, an article layout, AI assistance disclosures, social metadata, and internal link/asset validation. [Launch story](https://johnapaz.com/blog/website-v2-launch/) · [Release guide](https://github.com/johnapaz/johnapaz.github.io/blob/main/docs/releasing.md). Production publishes from main; staging remains independent.
 
 ![Staging deployment](https://github.com/johnapaz/johnapaz-staging/actions/workflows/staging.yml/badge.svg)
+
+## Frozen build runtime (#69)
+
+The selected website source owns `.ruby-version` and Gemfile.lock. Both source CI and this publisher install with `BUNDLE_FROZEN=true` and reject any lockfile mutation. Sources without a runtime file use the historical Ruby 2.7 fallback, preserving old saved previews. New runtime/dependency source must pass its source CI and a real exact-SHA staging preview before promotion.
+
+Pull requests validate the build but never deploy. Controller feature branches can validate builds, but the protected Pages environment allows deployment only from controller main. Merge the checked controller PR, then manually run the workflow **from main**, with `source_ref` set to the exact website candidate SHA. After review restore the saved source using the tested controller workflow. PR validation uses a separate concurrency group so it cannot replace pending deployments. Never change staging-source.txt solely for a temporary preview.
+
+The #69 maintenance change retains the ZIP security fix and removes the source CI’s silent dependency downgrade. Website implementation remains in the source repository; the protected admin Worker has a separate deployment lifecycle.

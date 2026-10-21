@@ -2,6 +2,8 @@ name: Publish branch preview to staging
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       source_ref:
@@ -13,13 +15,14 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: staging-pages
+  group: ${{ github.event_name == 'pull_request' && format('staging-pr-{0}', github.event.pull_request.number) || 'staging-pages' }}
   cancel-in-progress: false
 jobs:
   build:
     runs-on: ubuntu-22.04
     env:
       JEKYLL_ENV: staging
+      BUNDLE_FROZEN: "true"
     steps:
       - name: Read preview selection
         uses: actions/checkout@v4
@@ -47,14 +50,27 @@ jobs:
           persist-credentials: false
       - name: Record source revision
         run: echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Select declared build runtime
+        run: |
+          python3 - <<'PYTHON'
+          import os, re
+          from pathlib import Path
+          # Historical saved previews predate the runtime file.
+          runtime = Path(".ruby-version").read_text().strip() if Path(".ruby-version").exists() else "2.7"
+          if not re.fullmatch(r"[0-9]+\.[0-9]+(?:\.[0-9]+)?", runtime):
+              raise SystemExit("Invalid declared Ruby version")
+          with open(os.environ["GITHUB_ENV"], "a") as output:
+              output.write(f"SOURCE_RUBY_VERSION={runtime}\n")
+          PYTHON
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '2.7'
+          ruby-version: ${{ env.SOURCE_RUBY_VERSION }}
           bundler: '2.4.22'
           bundler-cache: true
       - name: Install dependencies
         run: |
           bundle install
+          git diff --exit-code -- Gemfile.lock
       - name: Build staging
         run: |
           bundle exec jekyll build --safe --config _config.yml,_config.staging.yml
@@ -77,6 +93,7 @@ jobs:
         with:
           path: _site
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-22.04
     permissions:
